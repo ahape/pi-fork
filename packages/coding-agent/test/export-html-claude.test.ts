@@ -296,6 +296,57 @@ describe("export-html-claude", () => {
 				expect(bashEntry.message.output).toBe("On branch main\nnothing to commit");
 			}
 		});
+
+		it("drops resubmitted prompts that got no response", () => {
+			const assistant = (uuid: string, parentUuid: string | null) => ({
+				uuid,
+				parentUuid,
+				type: "assistant",
+				timestamp: "2026-10-26T20:00:00.000Z",
+				message: { id: `turn-${uuid}`, model: "claude-sonnet-4-5", content: [{ type: "text", text: "ok" }] },
+			});
+			const user = (uuid: string, parentUuid: string) => ({
+				uuid,
+				parentUuid,
+				type: "user",
+				timestamp: "2026-10-26T20:00:01.000Z",
+				message: { role: "user", content: "Same question" },
+			});
+			const records = [
+				assistant("a1", null),
+				user("u1", "a1"),
+				{ uuid: "att1", parentUuid: "u1", type: "attachment" },
+				user("u2", "a1"),
+				assistant("a2", "u2"),
+			];
+
+			const entries = convertClaudeTranscript(records);
+			const ids = entries.map((e) => (e.type === "session" ? null : e.id));
+			expect(ids).not.toContain("u1");
+			expect(ids).toContain("u2");
+
+			const childCounts = new Map<string, number>();
+			for (const e of entries) {
+				if (e.type === "session" || e.parentId === null) continue;
+				childCounts.set(e.parentId, (childCounts.get(e.parentId) ?? 0) + 1);
+			}
+			expect(Math.max(...childCounts.values())).toBe(1);
+		});
+
+		it("keeps a trailing user prompt with no reply", () => {
+			const records = [
+				{
+					uuid: "u1",
+					parentUuid: null,
+					type: "user",
+					timestamp: "2026-10-26T20:00:00.000Z",
+					message: { role: "user", content: "Anyone there?" },
+				},
+			];
+
+			const entries = convertClaudeTranscript(records);
+			expect(entries.some((e) => e.type === "message" && e.id === "u1")).toBe(true);
+		});
 	});
 
 	describe("persisted tool output expansion", () => {

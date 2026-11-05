@@ -267,6 +267,15 @@ function pruneEmptyAssistants(entries: SessionEntry[]): SessionEntry[] {
 		});
 }
 
+/** Drop user prompts that got no response and are not the session leaf (resubmitted or abandoned prompts). */
+function pruneAbandonedPrompts(entries: SessionEntry[]): SessionEntry[] {
+	const parents = new Set(entries.map((e) => e.parentId));
+	const leafId = entries[entries.length - 1]?.id;
+	return entries.filter(
+		(e) => !(e.type === "message" && e.message.role === "user" && !parents.has(e.id) && e.id !== leafId),
+	);
+}
+
 /**
  * Locate a Claude Code transcript by direct file path or session ID.
  */
@@ -587,7 +596,7 @@ export function convertClaudeTranscript(records: unknown[], transcriptPath?: str
 		};
 	}
 
-	return [header, ...pruneEmptyAssistants(entries)];
+	return [header, ...pruneAbandonedPrompts(pruneEmptyAssistants(entries))];
 }
 
 /**
