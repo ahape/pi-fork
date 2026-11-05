@@ -432,6 +432,7 @@ export function convertClaudeTranscript(records: unknown[]): FileEntry[] {
 				{
 					message: {
 						role: "assistant",
+						provider: "anthropic",
 						content: blocks,
 						...(model && { model }),
 						...(usage && { usage }),
