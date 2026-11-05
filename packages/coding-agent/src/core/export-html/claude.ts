@@ -1,8 +1,8 @@
 // Export Claude Code transcripts to Pi HTML sessions.
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import type {
 	AssistantMessage,
 	ImageContent,
@@ -299,9 +299,38 @@ export function findClaudeTranscript(sessionIdOrPath: string): string {
 }
 
 /**
- * Convert parsed Claude transcript records into Pi session file entries.
+ * Create a reader for "Full output saved to: <path>" references.
+ *
+ * Tool-result text is untrusted (command output, MCP responses), so a path in it may
+ * point anywhere. Only regular files whose real path lies inside this session's own
+ * `<transcript dir>/<session id>/tool-results/` directory are read. Without a
+ * transcript path, nothing is expanded.
  */
-export function convertClaudeTranscript(records: unknown[]): FileEntry[] {
+function createPersistedOutputReader(transcriptPath?: string): (path: string) => string | undefined {
+	if (!transcriptPath) return () => undefined;
+	const toolResultsDir = join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "tool-results");
+	let realDir: string | undefined;
+	return (filePath) => {
+		try {
+			realDir ??= realpathSync(toolResultsDir);
+			const realFile = realpathSync(filePath);
+			const rel = relative(realDir, realFile);
+			if (!rel || rel.startsWith("..") || isAbsolute(rel)) return undefined;
+			if (!statSync(realFile).isFile()) return undefined;
+			return readFileSync(realFile, "utf-8");
+		} catch {
+			// missing or unreadable persisted file
+			return undefined;
+		}
+	};
+}
+
+/**
+ * Convert parsed Claude transcript records into Pi session file entries.
+ * Persisted tool outputs are expanded only when `transcriptPath` is given, and only
+ * from that session's tool-results directory.
+ */
+export function convertClaudeTranscript(records: unknown[], transcriptPath?: string): FileEntry[] {
 	const entries: SessionEntry[] = [];
 	const parentOf = new Map<string, string | null>();
 	const emitted = new Map<string, string>(); // Claude uuid -> emitted entry id
@@ -313,14 +342,7 @@ export function convertClaudeTranscript(records: unknown[]): FileEntry[] {
 	let pendingBash: string | null = null;
 	let preCompactTokens = 0;
 
-	const readFile = (filePath: string): string | undefined => {
-		try {
-			if (existsSync(filePath)) return readFileSync(filePath, "utf-8");
-		} catch {
-			// ignore unreadable persisted files
-		}
-		return undefined;
-	};
+	const readFile = createPersistedOutputReader(transcriptPath);
 
 	for (const item of records) {
 		if (typeof item !== "object" || item === null) continue;
@@ -588,7 +610,7 @@ export async function exportClaudeSession(sessionIdOrPath: string, options?: Exp
 		}
 	}
 
-	const fileEntries = convertClaudeTranscript(records);
+	const fileEntries = convertClaudeTranscript(records, transcriptPath);
 	if (fileEntries.length === 0) {
 		throw new Error(`Failed to convert Claude session: ${transcriptPath}`);
 	}

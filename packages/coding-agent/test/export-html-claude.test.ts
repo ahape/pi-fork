@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createContext, runInContext } from "node:vm";
@@ -233,7 +233,7 @@ describe("export-html-claude", () => {
 					output: 45,
 					cacheRead: 10,
 					cacheWrite: 5,
-					totalTokens: 195,
+					totalTokens: 210,
 					cost: {
 						input: 0,
 						output: 0,
@@ -295,6 +295,91 @@ describe("export-html-claude", () => {
 				expect(bashEntry.message.command).toBe("git status");
 				expect(bashEntry.message.output).toBe("On branch main\nnothing to commit");
 			}
+		});
+	});
+
+	describe("persisted tool output expansion", () => {
+		const toolResultRecords = (text: string) => [
+			{ type: "mode", sessionId: "sess-p", timestamp: "2026-10-26T20:00:00.000Z", cwd: "/test" },
+			{
+				uuid: "a-1",
+				parentUuid: null,
+				type: "assistant",
+				timestamp: "2026-10-26T20:00:01.000Z",
+				message: {
+					id: "turn-1",
+					model: "claude-opus-5-5",
+					content: [{ type: "tool_use", id: "toolu-1", name: "Bash", input: { command: "ls" } }],
+				},
+			},
+			{
+				uuid: "u-1",
+				parentUuid: "a-1",
+				type: "user",
+				timestamp: "2026-10-26T20:00:02.000Z",
+				message: {
+					role: "user",
+					content: [{ type: "tool_result", tool_use_id: "toolu-1", content: text }],
+				},
+			},
+		];
+
+		const resultText = (records: unknown[], transcriptPath?: string): string => {
+			const entries = convertClaudeTranscript(records, transcriptPath);
+			const result = entries.find((e) => e.type === "message" && e.message.role === "toolResult") as
+				| SessionMessageEntry
+				| undefined;
+			const content = result?.message.role === "toolResult" ? result.message.content[0] : undefined;
+			return content?.type === "text" ? content.text : "";
+		};
+
+		const setupSession = () => {
+			const transcriptPath = join(tempDir, "sess-p.jsonl");
+			const toolResultsDir = join(tempDir, "sess-p", "tool-results");
+			mkdirSync(toolResultsDir, { recursive: true });
+			return { transcriptPath, toolResultsDir };
+		};
+
+		it("expands files inside the session's tool-results directory", () => {
+			const { transcriptPath, toolResultsDir } = setupSession();
+			const saved = join(toolResultsDir, "toolu-1.txt");
+			writeFileSync(saved, "full output");
+			expect(resultText(toolResultRecords(`truncated\nFull output saved to: ${saved}`), transcriptPath)).toBe(
+				"full output",
+			);
+		});
+
+		it("does not expand files outside the session's tool-results directory", () => {
+			const { transcriptPath } = setupSession();
+			const secret = join(tempDir, "secret.txt");
+			writeFileSync(secret, "private");
+			const traversal = join(tempDir, "sess-p", "tool-results", "..", "..", "secret.txt");
+			for (const path of [secret, traversal]) {
+				const text = resultText(toolResultRecords(`Full output saved to: ${path}`), transcriptPath);
+				expect(text).not.toContain("private");
+			}
+		});
+
+		it("does not expand symlinks that escape the tool-results directory", () => {
+			const { transcriptPath, toolResultsDir } = setupSession();
+			const secret = join(tempDir, "secret.txt");
+			writeFileSync(secret, "private");
+			const link = join(toolResultsDir, "link.txt");
+			try {
+				symlinkSync(secret, link);
+			} catch {
+				return; // symlinks need extra privileges on Windows
+			}
+			expect(resultText(toolResultRecords(`Full output saved to: ${link}`), transcriptPath)).not.toContain(
+				"private",
+			);
+		});
+
+		it("does not expand anything without a transcript path", () => {
+			const { toolResultsDir } = setupSession();
+			const saved = join(toolResultsDir, "toolu-1.txt");
+			writeFileSync(saved, "full output");
+			expect(resultText(toolResultRecords(`Full output saved to: ${saved}`))).not.toBe("full output");
 		});
 	});
 
