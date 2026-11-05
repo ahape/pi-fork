@@ -37,7 +37,9 @@ export interface Args {
 	noExtensions?: boolean;
 	noMcp?: boolean;
 	print?: boolean;
-	export?: string;
+	export?: string | boolean;
+	claude?: string;
+	useTermColors?: boolean;
 	noSkills?: boolean;
 	skills?: string[];
 	promptTemplates?: string[];
@@ -181,8 +183,14 @@ export function parseArgs(args: string[]): Args {
 				result.messages.push(next);
 				i++;
 			}
-		} else if (arg === "--export" && i + 1 < args.length) {
-			result.export = args[++i];
+		} else if (arg === "--claude" && i + 1 < args.length) {
+			result.claude = args[++i];
+		} else if (arg === "--export") {
+			if (i + 1 < args.length && !args[i + 1].startsWith("-") && !args[i + 1].startsWith("@")) {
+				result.export = args[++i];
+			} else {
+				result.export = true;
+			}
 		} else if ((arg === "--extension" || arg === "-e") && i + 1 < args.length) {
 			result.extensions = result.extensions ?? [];
 			result.extensions.push(args[++i]);
@@ -207,6 +215,8 @@ export function parseArgs(args: string[]): Args {
 				result.useTheme = themeName;
 				i++;
 			}
+		} else if (arg === "--use-term-colors") {
+			result.useTermColors = true;
 		} else if (arg === "--no-skills" || arg === "-ns") {
 			result.noSkills = true;
 		} else if (arg === "--no-prompt-templates" || arg === "-np") {
@@ -335,6 +345,8 @@ ${chalk.bold("Options:")}
   --no-themes                    Disable theme discovery and loading
   --no-context-files, -nc        Disable AGENTS.md and CLAUDE.md discovery and loading
   --export <file> [output]       Export session file to HTML and exit
+  --export --claude <id> [output] Export Claude Code session to HTML and exit
+  --use-term-colors              Use terminal colors for HTML export instead of the default zenburn theme
   --list-models [search]         List available models (with optional fuzzy search)
   --verbose                      Force verbose startup (overrides quietStartup setting)
   --tui-mode <mode>              TUI mode: fullscreen (default) or regular
@@ -414,6 +426,7 @@ ${chalk.bold("Examples:")}
   # Export a session file to HTML
   ${APP_NAME} --export ~/${CONFIG_DIR_NAME}/agent/sessions/--path--/session.jsonl
   ${APP_NAME} --export session.jsonl output.html
+  ${APP_NAME} --export --claude <claude-session-id>
 
 ${chalk.bold("Environment Variables:")}
   ANTHROPIC_AUTH_TOKEN             - Anthropic bearer auth token

@@ -923,17 +923,42 @@
       }
 
       function getLanguageFromPath(filePath) {
-        const ext = filePath.split('.').pop()?.toLowerCase();
+        if (!filePath) return undefined;
+        const filename = filePath.split('/').pop()?.toLowerCase() || '';
+        if (filename === 'makefile') return 'makefile';
+        const ext = filename.includes('.') ? filename.split('.').pop()?.toLowerCase() : '';
         const extToLang = {
-          ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-          py: 'python', rb: 'ruby', rs: 'rust', go: 'go', java: 'java',
-          c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp',
-          php: 'php', sh: 'bash', bash: 'bash', zsh: 'bash',
-          sql: 'sql', html: 'html', css: 'css', scss: 'scss',
-          json: 'json', yaml: 'yaml', yml: 'yaml', xml: 'xml',
-          md: 'markdown', dockerfile: 'dockerfile'
+          ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
+          js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
+          py: 'python', pyw: 'python',
+          rb: 'ruby',
+          rs: 'rust',
+          go: 'go',
+          java: 'java',
+          c: 'c', h: 'c',
+          cpp: 'cpp', hpp: 'cpp', cc: 'cpp', cxx: 'cpp',
+          cs: 'csharp',
+          php: 'php',
+          sh: 'bash', bash: 'bash', zsh: 'bash',
+          sql: 'sql',
+          html: 'html', htm: 'html',
+          css: 'css', scss: 'scss', less: 'less',
+          json: 'json',
+          yaml: 'yaml', yml: 'yaml',
+          xml: 'xml', svg: 'xml',
+          md: 'markdown', markdown: 'markdown',
+          toml: 'ini', ini: 'ini',
+          lua: 'lua',
+          swift: 'swift',
+          kt: 'kotlin', kts: 'kotlin',
+          r: 'r',
+          pl: 'perl', pm: 'perl',
+          diff: 'diff', patch: 'diff',
+          graphql: 'graphql', gql: 'graphql',
+          wasm: 'wasm',
         };
-        return extToLang[ext];
+        const candidate = extToLang[ext] ?? (ext && typeof hljs !== 'undefined' && hljs.getLanguage(ext) ? ext : undefined);
+        return candidate && typeof hljs !== 'undefined' && hljs.getLanguage(candidate) ? candidate : undefined;
       }
 
       function findToolResult(toolCallId) {
@@ -1114,7 +1139,8 @@
               html += '</div>';
             } else if (result) {
               const output = getResultText().trim();
-              if (output) html += `<div class="tool-output"><pre>${escapeHtml(output)}</pre></div>`;
+              const lang = filePath ? getLanguageFromPath(filePath) : null;
+              if (output) html += formatExpandableOutput(output, 10, lang);
             }
             break;
           }
@@ -1165,7 +1191,9 @@
               html += `<div class="tool-output"><pre>${escapeHtml(JSON.stringify(args, null, 2))}</pre></div>`;
               if (result) {
                 const output = getResultText();
-                if (output) html += formatExpandableOutput(output, 10);
+                const filePath = str(args.file_path ?? args.path);
+                const lang = filePath ? getLanguageFromPath(filePath) : null;
+                if (output) html += formatExpandableOutput(output, 10, lang);
               }
             }
           }
