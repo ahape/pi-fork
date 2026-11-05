@@ -223,7 +223,7 @@ function convertUsage(usage?: ClaudeUsage): Usage | undefined {
 		output,
 		cacheRead: usage.cache_read_input_tokens || 0,
 		cacheWrite: usage.cache_creation_input_tokens || 0,
-		totalTokens: input + output,
+		totalTokens: input + output + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0),
 		cost: {
 			input: 0,
 			output: 0,
