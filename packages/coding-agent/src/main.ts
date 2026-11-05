@@ -655,7 +655,10 @@ export async function main(args: string[], options?: MainOptions) {
 			const inputFile = typeof parsed.export === "string" ? parsed.export : parsed.messages[0];
 			const outputPath = typeof parsed.export === "string" ? parsed.messages[0] : parsed.messages[1];
 			if (parsed.claude) {
-				result = await exportClaudeSession(parsed.claude, { outputPath: parsed.messages[0], themeName });
+				result = await exportClaudeSession(parsed.claude, {
+					outputPath: typeof parsed.export === "string" ? parsed.export : parsed.messages[0],
+					themeName,
+				});
 			} else if (inputFile) {
 				result = await exportFromFile(inputFile, { outputPath, themeName });
 			} else {
