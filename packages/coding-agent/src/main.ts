@@ -42,7 +42,7 @@ import {
 } from "./core/agent-session-services.ts";
 import { formatNoModelsAvailableMessage } from "./core/auth-guidance.ts";
 import { AuthStorage, ReadOnlyAuthStorage } from "./core/auth-storage.ts";
-import { exportFromFile } from "./core/export-html/index.ts";
+import { exportClaudeSession, exportFromFile } from "./core/export-html/index.ts";
 import type { InlineExtension } from "./core/extensions/types.ts";
 import { applyHttpProxySettings, configureHttpDispatcher } from "./core/http-dispatcher.ts";
 import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.ts";
@@ -651,8 +651,16 @@ export async function main(args: string[], options?: MainOptions) {
 	if (parsed.export) {
 		let result: string;
 		try {
-			const outputPath = parsed.messages.length > 0 ? parsed.messages[0] : undefined;
-			result = await exportFromFile(parsed.export, outputPath);
+			const themeName = parsed.useTermColors ? (parsed.useTheme ?? "system") : (parsed.useTheme ?? "zenburn");
+			const inputFile = typeof parsed.export === "string" ? parsed.export : parsed.messages[0];
+			const outputPath = typeof parsed.export === "string" ? parsed.messages[0] : parsed.messages[1];
+			if (parsed.claude) {
+				result = await exportClaudeSession(parsed.claude, { outputPath: parsed.messages[0], themeName });
+			} else if (inputFile) {
+				result = await exportFromFile(inputFile, { outputPath, themeName });
+			} else {
+				throw new Error("--export requires a session file or --claude <session-id>");
+			}
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "Failed to export session";
 			console.error(chalk.red(`Error: ${message}`));

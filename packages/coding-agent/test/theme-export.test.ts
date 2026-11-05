@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getThemeExportColors } from "../src/modes/interactive/theme/theme.ts";
+import { getResolvedThemeColors, getThemeExportColors } from "../src/modes/interactive/theme/theme.ts";
 
 type ThemeFile = {
 	name: string;
@@ -123,5 +123,18 @@ describe("getThemeExportColors", () => {
 			cardBg: "#005f87",
 			infoBg: undefined,
 		});
+	});
+
+	it("resolves built-in zenburn theme colors and export section", () => {
+		expect(getThemeExportColors("zenburn")).toEqual({
+			pageBg: "#1f1f1f",
+			cardBg: "#1f1f1f",
+			infoBg: "#2a2820",
+		});
+		const colors = getResolvedThemeColors("zenburn");
+		expect(colors.text).toBe("#dcdccc");
+		expect(colors.accent).toBe("#c0bed1");
+		expect(colors.userMessageBg).toBe("#1f1f1f");
+		expect(colors.selectedBg).toBe("#2f2f2f");
 	});
 });

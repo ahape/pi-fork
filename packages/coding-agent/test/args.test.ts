@@ -136,6 +136,45 @@ describe("parseArgs", () => {
 			expect(result.export).toBe("session.jsonl");
 		});
 
+		test("parses --export --claude <session-id>", () => {
+			const result = parseArgs(["--export", "--claude", "session-xyz", "out.html"]);
+			expect(result.export).toBe(true);
+			expect(result.claude).toBe("session-xyz");
+			expect(result.messages).toEqual(["out.html"]);
+		});
+
+		test("parses --claude <session-id> --export", () => {
+			const result = parseArgs(["--claude", "session-xyz", "--export"]);
+			expect(result.export).toBe(true);
+			expect(result.claude).toBe("session-xyz");
+		});
+
+		test("parses --use-term-colors flag", () => {
+			const result = parseArgs(["--use-term-colors"]);
+			expect(result.useTermColors).toBe(true);
+		});
+
+		test("parses --export with --use-term-colors", () => {
+			const result = parseArgs(["--export", "session.jsonl", "--use-term-colors"]);
+			expect(result.export).toBe("session.jsonl");
+			expect(result.useTermColors).toBe(true);
+		});
+
+		test("parses --export --use-term-colors flag ordering", () => {
+			const result = parseArgs(["--export", "--use-term-colors", "session.jsonl", "out.html"]);
+			expect(result.export).toBe(true);
+			expect(result.useTermColors).toBe(true);
+			expect(result.messages).toEqual(["session.jsonl", "out.html"]);
+		});
+
+		test("parses --export --claude with --use-term-colors", () => {
+			const result = parseArgs(["--export", "--claude", "session-xyz", "--use-term-colors", "out.html"]);
+			expect(result.export).toBe(true);
+			expect(result.claude).toBe("session-xyz");
+			expect(result.useTermColors).toBe(true);
+			expect(result.messages).toEqual(["out.html"]);
+		});
+
 		test("parses --thinking", () => {
 			const result = parseArgs(["--thinking", "high"]);
 			expect(result.thinking).toBe("high");
