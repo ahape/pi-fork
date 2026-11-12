@@ -142,6 +142,7 @@ interface ResolvedToolExecution {
 }
 
 const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
+const SCRIPT_STATUS_HEADER = /^(Script (?:completed|failed)\nWall time [^\n]*(?:\nOutput:)?(?:\n|$))/i;
 const DATA_URL = /^data:([^;,]+);base64,([\s\S]+)$/;
 const SKILL_TAG =
 	/^<skill>\s*\r?\n<name>([\s\S]*?)<\/name>\s*\r?\n<path>([\s\S]*?)<\/path>\s*\r?\n([\s\S]*?)\r?\n<\/skill>\s*$/;
@@ -167,8 +168,7 @@ function formatToolPath(filePath: string, cwd: string): string {
 	if (!normCwd) return normFile;
 	// Drive letters and backslashes are case-insensitive. POSIX paths keep their case,
 	// so `/work/Project` is not inside `/work/project`.
-	const windows =
-		/\\/.test(filePath) || /\\/.test(cwd) || /^[A-Za-z]:/.test(normFile) || /^[A-Za-z]:/.test(normCwd);
+	const windows = /\\/.test(filePath) || /\\/.test(cwd) || /^[A-Za-z]:/.test(normFile) || /^[A-Za-z]:/.test(normCwd);
 	const fileKey = windows ? normFile.toLowerCase() : normFile;
 	const cwdKey = windows ? normCwd.toLowerCase() : normCwd;
 	if (fileKey.startsWith(`${cwdKey}/`)) {
@@ -368,14 +368,26 @@ function parseToolOutputPayload(output: unknown): {
 	}
 
 	const cleanedParts: string[] = [];
-	for (const chunk of textChunks) {
-		if (/^Script (?:completed|failed)\nWall time /i.test(chunk)) {
+	for (const rawChunk of textChunks) {
+		let chunk = rawChunk;
+		const header = chunk.match(SCRIPT_STATUS_HEADER);
+		if (header) {
 			if (chunk.startsWith("Script failed")) isError = true;
-			continue;
+			chunk = chunk.slice(header[0].length);
+			if (!chunk.trim()) continue;
 		}
 		if (chunk.startsWith("Script error:\n")) {
 			isError = true;
 			cleanedParts.push(cleanOutputText(chunk.slice("Script error:\n".length)));
+			continue;
+		}
+		const embeddedError = chunk.indexOf("\nScript error:\n");
+		if (embeddedError !== -1) {
+			isError = true;
+			const before = cleanOutputText(chunk.slice(0, embeddedError));
+			const after = cleanOutputText(chunk.slice(embeddedError + "\nScript error:\n".length));
+			const combined = [before, after].filter((part) => part.length > 0).join("\n");
+			if (combined) cleanedParts.push(combined);
 			continue;
 		}
 		const trimmed = chunk.trim();

@@ -451,6 +451,47 @@ describe("export-html-codex", () => {
 			}
 		});
 
+		it("keeps script output that shares a chunk with the status header", () => {
+			const exec = (id: string, output: string) => [
+				{
+					type: "response_item",
+					payload: {
+						id,
+						type: "custom_tool_call",
+						call_id: id,
+						name: "exec",
+						input: 'await tools.exec_command({ cmd: "echo hello" });',
+					},
+				},
+				{
+					type: "response_item",
+					payload: { type: "custom_tool_call_output", call_id: id, output },
+				},
+			];
+			const entries = convertCodexTranscript([
+				{ type: "session_meta", payload: { id: "sess-script", cwd: "/workspace" } },
+				...exec("call-ok", "Script completed\nWall time 0.1 seconds\nOutput:\nhello"),
+				...exec("call-bad", "Script failed\nWall time 0.1 seconds\nOutput:\nhello\nScript error:\nboom"),
+				...exec("call-head", "Script failed\nWall time 0.1 seconds"),
+			]);
+			const toolResults = entries.filter(
+				(e): e is SessionMessageEntry => e.type === "message" && e.message.role === "toolResult",
+			);
+			expect(toolResults).toHaveLength(3);
+			if (toolResults[0].message.role === "toolResult") {
+				expect(toolResults[0].message.isError).toBe(false);
+				expect(toolResults[0].message.content).toEqual([{ type: "text", text: "hello" }]);
+			}
+			if (toolResults[1].message.role === "toolResult") {
+				expect(toolResults[1].message.isError).toBe(true);
+				expect(toolResults[1].message.content).toEqual([{ type: "text", text: "hello\nboom" }]);
+			}
+			if (toolResults[2].message.role === "toolResult") {
+				expect(toolResults[2].message.isError).toBe(true);
+				expect(toolResults[2].message.content).toEqual([]);
+			}
+		});
+
 		it("handles failed exec calls before item_completed, function_call, compaction, and turn_aborted", () => {
 			const records = [
 				{
