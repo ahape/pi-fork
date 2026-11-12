@@ -452,7 +452,18 @@ function resolveToolCallExecutions(pending: PendingToolCall, rawOutput: unknown,
 							isError: failed,
 						});
 					} else {
-						const diff = change.unified_diff ? cleanOutputText(change.unified_diff) : undefined;
+						let diff: string | undefined;
+						if (change.unified_diff) {
+							diff = cleanOutputText(change.unified_diff);
+						} else if (change.type === "delete" && change.content) {
+							const removed = cleanOutputText(change.content);
+							diff = removed
+								? removed
+										.split("\n")
+										.map((line) => `-${line}`)
+										.join("\n")
+								: undefined;
+						}
 						results.push({
 							call: {
 								type: "toolCall",

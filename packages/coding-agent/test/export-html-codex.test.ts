@@ -492,6 +492,57 @@ describe("export-html-codex", () => {
 			}
 		});
 
+		it("renders a structured file deletion as a removal diff", () => {
+			const entries = convertCodexTranscript([
+				{ type: "session_meta", payload: { id: "sess-delete", cwd: "/workspace" } },
+				{
+					type: "response_item",
+					payload: {
+						id: "call-del",
+						type: "custom_tool_call",
+						call_id: "call-del",
+						name: "exec",
+						input: "await tools.apply_patch();",
+					},
+				},
+				{
+					type: "event_msg",
+					payload: {
+						type: "item_completed",
+						item: {
+							type: "FileChange",
+							id: "patch-del",
+							changes: {
+								"/workspace/src/old.ts": { type: "delete", content: "export const old = true;\n" },
+								"/workspace/src/gone.ts": {
+									type: "delete",
+									content: "ignored when a diff is present\n",
+									unified_diff: "@@ -1 +0,0 @@\n-gone\n",
+								},
+							},
+							status: "completed",
+						},
+					},
+				},
+				{
+					type: "response_item",
+					payload: { type: "custom_tool_call_output", call_id: "call-del", output: "ok" },
+				},
+			]);
+			const toolResults = entries.filter(
+				(e): e is SessionMessageEntry => e.type === "message" && e.message.role === "toolResult",
+			);
+			expect(toolResults).toHaveLength(2);
+			if (toolResults[0].message.role === "toolResult") {
+				expect(toolResults[0].message.toolName).toBe("edit");
+				expect(toolResults[0].message.content).toEqual([{ type: "text", text: "-export const old = true;" }]);
+				expect(toolResults[0].message.details).toEqual({ diff: "-export const old = true;" });
+			}
+			if (toolResults[1].message.role === "toolResult") {
+				expect(toolResults[1].message.content).toEqual([{ type: "text", text: "@@ -1 +0,0 @@\n-gone" }]);
+			}
+		});
+
 		it("handles failed exec calls before item_completed, function_call, compaction, and turn_aborted", () => {
 			const records = [
 				{
