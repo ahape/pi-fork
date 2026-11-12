@@ -230,7 +230,7 @@ describe("export-html-codex", () => {
 							type: "FileChange",
 							id: "patch-1",
 							changes: {
-								"C:\\repo\\project\\src\\index.ts": {
+								"c:\\REPO\\project\\src\\index.ts": {
 									type: "update",
 									unified_diff: "@@ -1,1 +1,1 @@\n-export const v = 1;\n+export const v = 2;\n",
 								},
@@ -388,6 +388,65 @@ describe("export-html-codex", () => {
 			if (asstFinal.message.role === "assistant") {
 				expect(asstFinal.message.content).toEqual([
 					{ type: "text", text: "# Plan Title\n\nUpdated `src/index.ts`." },
+				]);
+			}
+		});
+
+		it("relativizes Windows paths case-insensitively and keeps POSIX case distinct", () => {
+			const records = [
+				{
+					type: "session_meta",
+					payload: { id: "sess-paths", cwd: "/work/project" },
+				},
+				{
+					type: "response_item",
+					payload: {
+						id: "call-paths",
+						type: "custom_tool_call",
+						call_id: "call-paths",
+						name: "exec",
+						input: "await tools.apply_patch();",
+					},
+				},
+				{
+					type: "event_msg",
+					payload: {
+						type: "item_completed",
+						item: {
+							type: "FileChange",
+							id: "patch-paths",
+							changes: {
+								"/work/project/src/a.ts": { type: "update", unified_diff: "@@ -1 +1 @@\n-a\n+b\n" },
+								"/work/Project/src/b.ts": { type: "update", unified_diff: "@@ -1 +1 @@\n-a\n+b\n" },
+							},
+							status: "completed",
+						},
+					},
+				},
+				{
+					type: "response_item",
+					payload: {
+						type: "custom_tool_call_output",
+						call_id: "call-paths",
+						output: "ok",
+					},
+				},
+			];
+
+			const entries = convertCodexTranscript(records);
+			const assistant = entries.find(
+				(e): e is SessionMessageEntry => e.type === "message" && e.message.role === "assistant",
+			);
+			expect(assistant).toBeDefined();
+			if (assistant?.message.role === "assistant") {
+				expect(assistant.message.content).toEqual([
+					{ type: "toolCall", id: "patch-paths", name: "edit", arguments: { path: "src/a.ts" } },
+					{
+						type: "toolCall",
+						id: "patch-paths-1",
+						name: "edit",
+						arguments: { path: "/work/Project/src/b.ts" },
+					},
 				]);
 			}
 		});

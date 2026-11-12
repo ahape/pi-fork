@@ -164,7 +164,14 @@ const HARNESS_PROVENANCE_TYPES = new Set(["agents_md", "harness"]);
 function formatToolPath(filePath: string, cwd: string): string {
 	const normFile = filePath.replace(/\\/g, "/");
 	const normCwd = cwd.replace(/\\/g, "/").replace(/\/+$/, "");
-	if (normCwd && normFile.toLowerCase().startsWith(`${normCwd.toLowerCase()}/`)) {
+	if (!normCwd) return normFile;
+	// Drive letters and backslashes are case-insensitive. POSIX paths keep their case,
+	// so `/work/Project` is not inside `/work/project`.
+	const windows =
+		/\\/.test(filePath) || /\\/.test(cwd) || /^[A-Za-z]:/.test(normFile) || /^[A-Za-z]:/.test(normCwd);
+	const fileKey = windows ? normFile.toLowerCase() : normFile;
+	const cwdKey = windows ? normCwd.toLowerCase() : normCwd;
+	if (fileKey.startsWith(`${cwdKey}/`)) {
 		return normFile.slice(normCwd.length + 1);
 	}
 	return normFile;
