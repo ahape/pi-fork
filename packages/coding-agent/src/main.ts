@@ -42,7 +42,7 @@ import {
 } from "./core/agent-session-services.ts";
 import { formatNoModelsAvailableMessage } from "./core/auth-guidance.ts";
 import { AuthStorage, ReadOnlyAuthStorage } from "./core/auth-storage.ts";
-import { exportClaudeSession, exportFromFile } from "./core/export-html/index.ts";
+import { exportClaudeSession, exportCodexSession, exportFromFile } from "./core/export-html/index.ts";
 import type { InlineExtension } from "./core/extensions/types.ts";
 import { applyHttpProxySettings, configureHttpDispatcher } from "./core/http-dispatcher.ts";
 import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.ts";
@@ -659,10 +659,15 @@ export async function main(args: string[], options?: MainOptions) {
 					outputPath: typeof parsed.export === "string" ? parsed.export : parsed.messages[0],
 					themeName,
 				});
+			} else if (parsed.codex) {
+				result = await exportCodexSession(parsed.codex, {
+					outputPath: typeof parsed.export === "string" ? parsed.export : parsed.messages[0],
+					themeName,
+				});
 			} else if (inputFile) {
 				result = await exportFromFile(inputFile, { outputPath, themeName });
 			} else {
-				throw new Error("--export requires a session file or --claude <session-id>");
+				throw new Error("--export requires a session file, --claude <session-id>, or --codex <session-id>");
 			}
 		} catch (error: unknown) {
 			const message = error instanceof Error ? error.message : "Failed to export session";

@@ -149,6 +149,19 @@ describe("parseArgs", () => {
 			expect(result.claude).toBe("session-xyz");
 		});
 
+		test("parses --export --codex <session-id>", () => {
+			const result = parseArgs(["--export", "--codex", "01a1cbd0-afbe-7dd1-bacd-1a415f11751a", "out.html"]);
+			expect(result.export).toBe(true);
+			expect(result.codex).toBe("01a1cbd0-afbe-7dd1-bacd-1a415f11751a");
+			expect(result.messages).toEqual(["out.html"]);
+		});
+
+		test("parses --codex <session-id> --export", () => {
+			const result = parseArgs(["--codex", "01a1cbd0-afbe-7dd1-bacd-1a415f11751a", "--export"]);
+			expect(result.export).toBe(true);
+			expect(result.codex).toBe("01a1cbd0-afbe-7dd1-bacd-1a415f11751a");
+		});
+
 		test("parses --use-term-colors flag", () => {
 			const result = parseArgs(["--use-term-colors"]);
 			expect(result.useTermColors).toBe(true);
@@ -171,6 +184,20 @@ describe("parseArgs", () => {
 			const result = parseArgs(["--export", "--claude", "session-xyz", "--use-term-colors", "out.html"]);
 			expect(result.export).toBe(true);
 			expect(result.claude).toBe("session-xyz");
+			expect(result.useTermColors).toBe(true);
+			expect(result.messages).toEqual(["out.html"]);
+		});
+
+		test("parses --export --codex with --use-term-colors", () => {
+			const result = parseArgs([
+				"--export",
+				"--codex",
+				"01a1cbd0-afbe-7dd1-bacd-1a415f11751a",
+				"--use-term-colors",
+				"out.html",
+			]);
+			expect(result.export).toBe(true);
+			expect(result.codex).toBe("01a1cbd0-afbe-7dd1-bacd-1a415f11751a");
 			expect(result.useTermColors).toBe(true);
 			expect(result.messages).toEqual(["out.html"]);
 		});

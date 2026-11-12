@@ -39,6 +39,7 @@ export interface Args {
 	print?: boolean;
 	export?: string | boolean;
 	claude?: string;
+	codex?: string;
 	useTermColors?: boolean;
 	noSkills?: boolean;
 	skills?: string[];
@@ -185,6 +186,8 @@ export function parseArgs(args: string[]): Args {
 			}
 		} else if (arg === "--claude" && i + 1 < args.length) {
 			result.claude = args[++i];
+		} else if (arg === "--codex" && i + 1 < args.length) {
+			result.codex = args[++i];
 		} else if (arg === "--export") {
 			if (i + 1 < args.length && !args[i + 1].startsWith("-") && !args[i + 1].startsWith("@")) {
 				result.export = args[++i];
@@ -346,6 +349,7 @@ ${chalk.bold("Options:")}
   --no-context-files, -nc        Disable AGENTS.md and CLAUDE.md discovery and loading
   --export <file> [output]       Export session file to HTML and exit
   --export --claude <id> [output] Export Claude Code session to HTML and exit
+  --export --codex <id> [output]  Export Codex session to HTML and exit
   --use-term-colors              Use terminal colors for HTML export instead of the default zenburn theme
   --list-models [search]         List available models (with optional fuzzy search)
   --verbose                      Force verbose startup (overrides quietStartup setting)
@@ -427,6 +431,7 @@ ${chalk.bold("Examples:")}
   ${APP_NAME} --export ~/${CONFIG_DIR_NAME}/agent/sessions/--path--/session.jsonl
   ${APP_NAME} --export session.jsonl output.html
   ${APP_NAME} --export --claude <claude-session-id>
+  ${APP_NAME} --export --codex <codex-session-id>
 
 ${chalk.bold("Environment Variables:")}
   ANTHROPIC_AUTH_TOKEN             - Anthropic bearer auth token

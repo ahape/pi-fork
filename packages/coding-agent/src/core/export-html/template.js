@@ -924,7 +924,7 @@
 
       function getLanguageFromPath(filePath) {
         if (!filePath) return undefined;
-        const filename = filePath.split('/').pop()?.toLowerCase() || '';
+        const filename = filePath.split(/[\\/]/).pop()?.toLowerCase() || '';
         if (filename === 'makefile') return 'makefile';
         const ext = filename.includes('.') ? filename.split('.').pop()?.toLowerCase() : '';
         const extToLang = {
